@@ -21,6 +21,7 @@ $routes->post('profile', 'Auth::profileUpdate');
 $routes->post('profile/password', 'Auth::passwordUpdate');
 $routes->get('admin/register', 'AdminSetup::register');
 $routes->post('admin/register', 'AdminSetup::create');
+
 $routes->group('admin', ['filter' => 'admin'], static function ($routes) {
     $routes->get('', 'Admin::dashboard');
     $routes->get('products', 'Admin::products');
@@ -35,6 +36,8 @@ $routes->group('admin', ['filter' => 'admin'], static function ($routes) {
     $routes->post('users/(:num)/block', 'Admin::userBlock/$1');
     $routes->get('logs', 'Admin::logs');
 });
+
+
 $routes->group('api/v1', static function ($routes) {
     $routes->get('products', 'Api\\V1::products');
     $routes->post('auth/register', 'Api\\V1::register');

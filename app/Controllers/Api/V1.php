@@ -1,14 +1,96 @@
 <?php
 namespace App\Controllers\Api;
-use App\Controllers\BaseController;use App\Repositories\ProductRepository;use App\Services\{AuthService,CartService,OrderService};use App\Models\OrderModel;
-class V1 extends BaseController {
- private function json($data,int $code=200){return $this->response->setStatusCode($code)->setJSON(['status'=>$code<400,'data'=>$data]);}private function body():array{return $this->request->getJSON(true)?:$this->request->getPost()?:[];}private function user():?array{$h=$this->request->getHeaderLine('Authorization');return (new AuthService())->userFromToken(preg_replace('/^Bearer\s+/i','',$h));}private function key():string{return $this->request->getHeaderLine('X-Cart-Key')?:'api-'.bin2hex(random_bytes(16));}private function currentCart():array{$u=$this->user();$key=$this->key();return [(new CartService())->cart($u['id']??null,$key),$key,$u];}
- public function products(){return $this->json((new ProductRepository())->active($this->request->getGet('q')));}
- public function register(){try{$u=(new AuthService())->register($this->body());return $this->json(['user'=>['id'=>$u['id'],'name'=>$u['name'],'email'=>$u['email']],'token'=>(new AuthService())->issueToken($u['id'])],201);}catch(\Throwable $e){return $this->json(['message'=>$e->getMessage()],422);}}
- public function login(){$d=$this->body();$u=(new AuthService())->login($d['email']??'', $d['password']??'');return $u?$this->json(['user'=>['id'=>$u['id'],'name'=>$u['name'],'email'=>$u['email']],'token'=>(new AuthService())->issueToken($u['id'])]):$this->json(['message'=>'Invalid credentials'],401);}
- public function cart(){[$cart,$key]=$this->currentCart();return $this->json(['cart_key'=>$key]+(new CartService())->contents($cart));}
- public function addCart(){try{[$cart,$key]=$this->currentCart();$d=$this->body();$svc=new CartService();$svc->add($cart,(int)$d['product_id'],(int)($d['quantity']??1));return $this->json(['cart_key'=>$key]+$svc->contents($cart));}catch(\Throwable $e){return $this->json(['message'=>$e->getMessage()],422);}}
- public function updateCart($id){try{[$cart,$key]=$this->currentCart();$svc=new CartService();$svc->update($cart,(int)$id,(int)($this->body()['quantity']??0));return $this->json(['cart_key'=>$key]+$svc->contents($cart));}catch(\Throwable $e){return $this->json(['message'=>$e->getMessage()],422);}}
- public function checkout(){try{[$cart,$key,$u]=$this->currentCart();if(!$u)return $this->json(['message'=>'Login is required to place an API order.'],401);$order=(new OrderService())->checkout($cart,$u['id'],$this->body());return $this->json($order,201);}catch(\Throwable $e){return $this->json(['message'=>$e->getMessage()],422);}}
- public function orders(){$u=$this->user();return $u?$this->json((new OrderModel())->where('user_id',$u['id'])->orderBy('id','DESC')->findAll()):$this->json(['message'=>'Authentication required'],401);}
+use App\Controllers\BaseController;
+use App\Repositories\ProductRepository;
+use App\Services\{AuthService, CartService, OrderService};
+use App\Models\OrderModel;
+class V1 extends BaseController
+{
+    private function json($data, int $code = 200)
+    {
+        return $this->response->setStatusCode($code)->setJSON(['status' => $code < 400, 'data' => $data]);
+    }
+    private function body(): array
+    {
+        return $this->request->getJSON(true) ?: $this->request->getPost() ?: [];
+    }
+    private function user(): ?array
+    {
+        $h = $this->request->getHeaderLine('Authorization');
+        return (new AuthService())->userFromToken(preg_replace('/^Bearer\s+/i', '', $h));
+    }
+    private function key(): string
+    {
+        return $this->request->getHeaderLine('X-Cart-Key') ?: 'api-' . bin2hex(random_bytes(16));
+    }
+    private function currentCart(): array
+    {
+        $u = $this->user();
+        $key = $this->key();
+        return [(new CartService())->cart($u['id'] ?? null, $key), $key, $u];
+    }
+    public function products()
+    {
+        return $this->json((new ProductRepository())->active($this->request->getGet('q')));
+    }
+    public function register()
+    {
+        try {
+            $u = (new AuthService())->register($this->body());
+            return $this->json(['user' => ['id' => $u['id'], 'name' => $u['name'], 'email' => $u['email']], 'token' => (new AuthService())->issueToken($u['id'])], 201);
+        } catch (\Throwable $e) {
+            return $this->json(['message' => $e->getMessage()], 422);
+        }
+    }
+    public function login()
+    {
+        $d = $this->body();
+        $u = (new AuthService())->login($d['email'] ?? '', $d['password'] ?? '');
+        return $u ? $this->json(['user' => ['id' => $u['id'], 'name' => $u['name'], 'email' => $u['email']], 'token' => (new AuthService())->issueToken($u['id'])]) : $this->json(['message' => 'Invalid credentials'], 401);
+    }
+    public function cart()
+    {
+        [$cart, $key] = $this->currentCart();
+        return $this->json(['cart_key' => $key] + (new CartService())->contents($cart));
+    }
+    public function addCart()
+    {
+        try {
+            [$cart, $key] = $this->currentCart();
+            $d = $this->body();
+            $svc = new CartService();
+            $svc->add($cart, (int) $d['product_id'], (int) ($d['quantity'] ?? 1));
+            return $this->json(['cart_key' => $key] + $svc->contents($cart));
+        } catch (\Throwable $e) {
+            return $this->json(['message' => $e->getMessage()], 422);
+        }
+    }
+    public function updateCart($id)
+    {
+        try {
+            [$cart, $key] = $this->currentCart();
+            $svc = new CartService();
+            $svc->update($cart, (int) $id, (int) ($this->body()['quantity'] ?? 0));
+            return $this->json(['cart_key' => $key] + $svc->contents($cart));
+        } catch (\Throwable $e) {
+            return $this->json(['message' => $e->getMessage()], 422);
+        }
+    }
+    public function checkout()
+    {
+        try {
+            [$cart, $key, $u] = $this->currentCart();
+            if (!$u)
+                return $this->json(['message' => 'Login is required to place an API order.'], 401);
+            $order = (new OrderService())->checkout($cart, $u['id'], $this->body());
+            return $this->json($order, 201);
+        } catch (\Throwable $e) {
+            return $this->json(['message' => $e->getMessage()], 422);
+        }
+    }
+    public function orders()
+    {
+        $u = $this->user();
+        return $u ? $this->json((new OrderModel())->where('user_id', $u['id'])->orderBy('id', 'DESC')->findAll()) : $this->json(['message' => 'Authentication required'], 401);
+    }
 }
